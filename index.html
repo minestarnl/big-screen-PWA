@@ -266,7 +266,12 @@
   $("bg").addEventListener("input", function (e) { set("bg", e.target.value); });
   $("swap").onclick = function () { var a = state.fg; state.fg = state.bg; state.bg = a; save(); render(); };
 
-  function openSheet() { sheet.classList.add("open"); $("hint").classList.add("gone"); }
+  function openSheet() {
+    sheet.classList.add("open"); $("hint").classList.add("gone");
+    // must run synchronously inside the tap so iPadOS shows the keyboard
+    try { txt.focus({ preventScroll: true }); } catch (e) { txt.focus(); }
+    var n = txt.value.length; try { txt.setSelectionRange(n, n); } catch (e) {}
+  }
   function closeSheet() { sheet.classList.remove("open"); txt.blur(); setTimeout(fitText, 300); requestWake(); }
   $("stage").addEventListener("click", function () { sheet.classList.contains("open") ? closeSheet() : openSheet(); });
   $("done").onclick = closeSheet;
