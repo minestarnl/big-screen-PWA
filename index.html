@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Big Text">
+<meta name="theme-color" content="#10131A">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<title>Big Text</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  /* Layout: the whole screen is the sign; a bottom sheet slides up for editing. */
+  :root {
+    --sign-fg: #FFD23F;
+    --sign-bg: #10131A;
+    --sheet-bg: #F6F5F2;
+    --sheet-fg: #1B1D22;
+    --sheet-muted: #6B6E76;
+    --sheet-line: #DEDCD6;
+    --sheet-field: #FFFFFF;
+    --accent: #2F5BEA;
+    --font-sign: -apple-system, "SF Pro Display", system-ui, "Helvetica Neue", Arial, sans-serif;
+    --font-ui: -apple-system, system-ui, "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --sheet-bg: #1E2026; --sheet-fg: #F1F0EC; --sheet-muted: #9A9DA6;
+      --sheet-line: #34373F; --sheet-field: #2A2D34; --accent: #7C9BFF; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --sheet-bg: #1E2026; --sheet-fg: #F1F0EC; --sheet-muted: #9A9DA6;
+    --sheet-line: #34373F; --sheet-field: #2A2D34; --accent: #7C9BFF; color-scheme: dark;
+  }
+  html, body { height: 100%; }
+  html { background: var(--sign-bg); }
+  body {
+    margin: 0; background: var(--sign-bg); color: var(--sign-fg);
+    font-family: var(--font-ui); overflow: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  #stage {
+    position: fixed; inset: 0;
+    padding: max(3vmin, env(safe-area-inset-top, 0px)) max(3vmin, env(safe-area-inset-right, 0px))
+             max(3vmin, env(safe-area-inset-bottom, 0px)) max(3vmin, env(safe-area-inset-left, 0px));
+    display: flex; align-items: center; justify-content: center;
+    background: var(--sign-bg); cursor: pointer;
+  }
+  #fit {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+  }
+  #out {
+    color: var(--sign-fg); font-family: var(--font-sign); font-weight: 800;
+    line-height: 1.04; letter-spacing: -0.01em; text-align: center;
+    white-space: pre-wrap; overflow-wrap: normal; word-break: normal;
+    max-width: 100%;
+  }
+  #hint {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    font: 600 13px/1 var(--font-ui); letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--sign-fg); opacity: 0.45; pointer-events: none; transition: opacity .6s;
+  }
+  #hint.gone { opacity: 0; }
+
+  /* Edit sheet */
+  #sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+    max-height: 88%; overflow-y: auto;
+    background: var(--sheet-bg); color: var(--sheet-fg);
+    border-radius: 18px 18px 0 0; box-shadow: 0 -10px 40px rgba(0,0,0,.35);
+    padding-top: 10px;
+    padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    transform: translateY(105%); transition: transform .28s cubic-bezier(.2,.8,.2,1);
+    -webkit-user-select: auto; user-select: auto;
+  }
+  #sheet.open { transform: translateY(0); }
+  .inner { max-width: 760px; margin: 0 auto; display: grid; gap: 16px; }
+  .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--sheet-line); margin: 0 auto 4px; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .head { justify-content: space-between; }
+  h2 { margin: 0; font-size: 17px; font-weight: 700; }
+  label.cap {
+    display: block; font-size: 11px; font-weight: 700; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--sheet-muted); margin-bottom: 8px;
+  }
+  textarea {
+    width: 100%; box-sizing: border-box; min-height: 92px; resize: vertical;
+    font: 500 20px/1.3 var(--font-ui); color: var(--sheet-fg);
+    background: var(--sheet-field); border: 1px solid var(--sheet-line);
+    border-radius: 12px; padding: 12px 14px;
+  }
+  textarea:focus, select:focus, button:focus-visible, input:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+  button, select {
+    font: 600 15px/1 var(--font-ui); color: var(--sheet-fg);
+    background: var(--sheet-field); border: 1px solid var(--sheet-line);
+    border-radius: 10px; padding: 11px 14px; cursor: pointer;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .colors { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; }
+  .swatchpick {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--sheet-field); border: 1px solid var(--sheet-line);
+    border-radius: 12px; padding: 8px 10px; min-width: 0;
+  }
+  .swatchpick input[type=color] {
+    width: 44px; height: 36px; border: none; padding: 0; background: none; border-radius: 8px; flex: none;
+  }
+  .swatchpick span { font-size: 14px; font-weight: 600; min-width: 0; }
+  .swatchpick code { font: 500 12px ui-monospace, Menlo, monospace; color: var(--sheet-muted); display: block; margin-top: 2px; }
+  .presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
+  .preset {
+    height: 52px; padding: 0; border-radius: 10px; font: 800 22px/1 var(--font-sign);
+    border: 2px solid transparent;
+  }
+  .preset[aria-pressed="true"] { border-color: var(--accent); }
+  .seg { display: flex; flex-wrap: wrap; gap: 8px; }
+  .seg button[aria-pressed="true"] { background: var(--sheet-fg); color: var(--sheet-bg); border-color: var(--sheet-fg); }
+  .note { font-size: 12px; color: var(--sheet-muted); margin: 0; }
+  @media (max-width: 480px) { .colors { grid-template-columns: 1fr 1fr; } .colors > button { grid-column: span 2; } }
+  @media (prefers-reduced-motion: reduce) { #sheet, #hint { transition: none; } }
+</style>
+</head>
+<body>
+
+
+<div id="stage" aria-label="Tap to edit">
+  <div id="fit"><div id="out">HELLO</div></div>
+</div>
+<div id="hint">Tap anywhere to edit</div>
+
+<div id="sheet" role="dialog" aria-label="Edit sign">
+  <div class="inner">
+    <div class="grab"></div>
+    <div class="row head">
+      <h2>Edit sign</h2>
+      <button class="primary" id="done" type="button">Show</button>
+    </div>
+
+    <div>
+      <label class="cap" for="txt">Text</label>
+      <textarea id="txt" spellcheck="false" placeholder="Type your message. Press Return for a new line."></textarea>
+    </div>
+
+    <div>
+      <label class="cap">Colors</label>
+      <div class="colors">
+        <label class="swatchpick"><input type="color" id="fg"><span>Text<code id="fgv"></code></span></label>
+        <label class="swatchpick"><input type="color" id="bg"><span>Background<code id="bgv"></code></span></label>
+        <button type="button" id="swap">Swap</button>
+      </div>
+    </div>
+
+    <div>
+      <label class="cap">Quick colors</label>
+      <div class="presets" id="presets"></div>
+    </div>
+
+    <div class="row" style="align-items:flex-start; gap:20px">
+      <div>
+        <label class="cap">Font</label>
+        <div class="seg" id="fonts"></div>
+      </div>
+      <div>
+        <label class="cap">Case</label>
+        <div class="seg" id="cases"></div>
+      </div>
+    </div>
+
+    <p class="note">Your text and colors are saved on this device. Tap the sign to come back here.</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  var FONTS = {
+    bold:    { label: "Bold",    css: '-apple-system, "SF Pro Display", system-ui, "Helvetica Neue", Arial, sans-serif', w: 800 },
+    rounded: { label: "Rounded", css: 'ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif', w: 800 },
+    serif:   { label: "Serif",   css: 'ui-serif, "New York", Georgia, "Times New Roman", serif', w: 700 },
+    mono:    { label: "Mono",    css: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace', w: 700 },
+    condensed: { label: "Condensed", css: '"Avenir Next Condensed", "Arial Narrow", "Roboto Condensed", sans-serif-condensed, sans-serif', w: 800 }
+  };
+  var CASES = { as: "As typed", upper: "UPPER" };
+  var PRESETS = [
+    ["#FFD23F","#10131A"], ["#FFFFFF","#000000"], ["#000000","#FFFFFF"],
+    ["#FF3B30","#FFFFFF"], ["#FFFFFF","#D7263D"], ["#00E676","#0B1F14"],
+    ["#0A2540","#7FDBFF"], ["#FFFFFF","#1F4BD8"], ["#1A1A1A","#FF9F1C"], ["#FF4FD8","#140A1E"]
+  ];
+  var KEY = "bigtext.v1";
+  var state = { text: "HELLO", fg: "#FFD23F", bg: "#10131A", font: "bold", tcase: "as" };
+  try { var s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s) for (var k in s) state[k] = s[k]; } catch (e) {}
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+  var $ = function (id) { return document.getElementById(id); };
+  var out = $("out"), fit = $("fit"), sheet = $("sheet"), txt = $("txt");
+
+  function fitText() {
+    var maxW = fit.clientWidth, maxH = fit.clientHeight;
+    if (!maxW || !maxH) return;
+    var lo = 4, hi = Math.max(maxW, maxH) * 1.5, best = lo;
+    for (var i = 0; i < 24; i++) {
+      var mid = (lo + hi) / 2;
+      out.style.fontSize = mid + "px";
+      if (out.scrollWidth <= maxW && out.scrollHeight <= maxH) { best = mid; lo = mid; } else { hi = mid; }
+      if (hi - lo < 0.5) break;
+    }
+    out.style.fontSize = Math.floor(best) + "px";
+  }
+
+  function render() {
+    var root = document.documentElement.style;
+    root.setProperty("--sign-fg", state.fg);
+    root.setProperty("--sign-bg", state.bg);
+    var f = FONTS[state.font] || FONTS.bold;
+    out.style.fontFamily = f.css; out.style.fontWeight = f.w;
+    var t = state.text.trim() ? state.text : " ";
+    out.textContent = state.tcase === "upper" ? t.toUpperCase() : t;
+    $("fg").value = state.fg; $("bg").value = state.bg;
+    $("fgv").textContent = state.fg.toUpperCase(); $("bgv").textContent = state.bg.toUpperCase();
+    var meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.content = state.bg;
+    markPressed("presets", function (b) { return b.dataset.fg === state.fg.toUpperCase() && b.dataset.bg === state.bg.toUpperCase(); });
+    markPressed("fonts", function (b) { return b.dataset.v === state.font; });
+    markPressed("cases", function (b) { return b.dataset.v === state.tcase; });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitText);
+    fitText();
+  }
+  function markPressed(id, test) {
+    var bs = $(id).querySelectorAll("button");
+    for (var i = 0; i < bs.length; i++) bs[i].setAttribute("aria-pressed", test(bs[i]) ? "true" : "false");
+  }
+  function set(k, v) { state[k] = v; save(); render(); }
+
+  // build controls
+  PRESETS.forEach(function (p) {
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "preset"; b.textContent = "Aa";
+    b.style.color = p[0]; b.style.background = p[1];
+    b.dataset.fg = p[0].toUpperCase(); b.dataset.bg = p[1].toUpperCase();
+    b.setAttribute("aria-label", "Text " + p[0] + " on " + p[1]);
+    b.onclick = function () { state.fg = p[0]; state.bg = p[1]; save(); render(); };
+    $("presets").appendChild(b);
+  });
+  Object.keys(FONTS).forEach(function (k) {
+    var b = document.createElement("button"); b.type = "button"; b.dataset.v = k;
+    b.textContent = FONTS[k].label; b.style.fontFamily = FONTS[k].css;
+    b.onclick = function () { set("font", k); }; $("fonts").appendChild(b);
+  });
+  Object.keys(CASES).forEach(function (k) {
+    var b = document.createElement("button"); b.type = "button"; b.dataset.v = k;
+    b.textContent = CASES[k]; b.onclick = function () { set("tcase", k); }; $("cases").appendChild(b);
+  });
+
+  txt.value = state.text;
+  txt.addEventListener("input", function () { set("text", txt.value); });
+  $("fg").addEventListener("input", function (e) { set("fg", e.target.value); });
+  $("bg").addEventListener("input", function (e) { set("bg", e.target.value); });
+  $("swap").onclick = function () { var a = state.fg; state.fg = state.bg; state.bg = a; save(); render(); };
+
+  function openSheet() { sheet.classList.add("open"); $("hint").classList.add("gone"); }
+  function closeSheet() { sheet.classList.remove("open"); txt.blur(); setTimeout(fitText, 300); requestWake(); }
+  $("stage").addEventListener("click", function () { sheet.classList.contains("open") ? closeSheet() : openSheet(); });
+  $("done").onclick = closeSheet;
+  setTimeout(function () { $("hint").classList.add("gone"); }, 3500);
+
+  // keep the screen on while showing the sign (where allowed)
+  var lock = null;
+  function requestWake() {
+    try { if (navigator.wakeLock && !lock) navigator.wakeLock.request("screen").then(function (l) { lock = l; l.addEventListener("release", function () { lock = null; }); }).catch(function () {}); } catch (e) {}
+  }
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") requestWake(); });
+
+  var rt; window.addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(fitText, 60); });
+  window.addEventListener("orientationchange", function () { setTimeout(fitText, 250); });
+
+  // offline support when installed from its own site
+  if ("serviceWorker" in navigator && location.protocol === "https:" && !/claude\.ai|claudeusercontent/.test(location.hostname)) {
+    try { navigator.serviceWorker.register("sw.js").catch(function () {}); } catch (e) {}
+  }
+
+  render();
+})();
+</script>
+
+</body>
+</html>
