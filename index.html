@@ -127,6 +127,10 @@
   .seg { display: flex; flex-wrap: wrap; gap: 8px; }
   .seg button[aria-pressed="true"] { background: var(--sheet-fg); color: var(--sheet-bg); border-color: var(--sheet-fg); }
   .note { font-size: 12px; color: var(--sheet-muted); margin: 0; }
+  #offline { font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; color: var(--sheet-muted); }
+  #offline::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  #offline.ok { color: #1E9E58; }
+  #offline.bad { color: #D0342C; }
   @media (max-width: 480px) { .colors { grid-template-columns: 1fr 1fr; } .colors > button { grid-column: span 2; } }
   @media (prefers-reduced-motion: reduce) { #sheet, #hint { transition: none; } }
 </style>
@@ -178,6 +182,7 @@
     </div>
 
     <p class="note">Your text and colors are saved on this device. Tap the sign to come back here.</p>
+    <span id="offline" hidden></span>
   </div>
 </div>
 
@@ -288,8 +293,20 @@
   window.addEventListener("orientationchange", function () { setTimeout(fitText, 250); });
 
   // offline support when installed from its own site
-  if ("serviceWorker" in navigator && location.protocol === "https:" && !/claude\.ai|claudeusercontent/.test(location.hostname)) {
-    try { navigator.serviceWorker.register("sw.js").catch(function () {}); } catch (e) {}
+  var off = $("offline");
+  function offlineStatus(text, cls) { off.hidden = false; off.textContent = text; off.className = cls || ""; }
+  if ("serviceWorker" in navigator && window.isSecureContext && !/claude\.ai|claudeusercontent/.test(location.hostname)) {
+    offlineStatus("Preparing offline use…");
+    try {
+      navigator.serviceWorker.register("./sw.js", { scope: "./" }).then(function (reg) {
+        try { reg.update(); } catch (e) {}
+        return navigator.serviceWorker.ready;
+      }).then(function () {
+        return caches.has("bigtext-v3");
+      }).then(function (has) {
+        offlineStatus(has ? "Ready offline" : "Preparing offline use…", has ? "ok" : "");
+      }).catch(function () { offlineStatus("Offline mode unavailable. Open once with internet.", "bad"); });
+    } catch (e) {}
   }
 
   render();

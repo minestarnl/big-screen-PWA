@@ -4,7 +4,7 @@ Type a message and it fills the whole iPad screen. Pick your own text and backgr
 
 ## Use it
 
-1. Open `https://minestarnl.github.io/big-screen-PWA/` in Safari on the iPad.
+1. Open `https://minestarnl.github.io/big-screen-PWA/` (capitals matter) in Safari on the iPad.
 2. Tap **Share → Add to Home Screen**.
 3. Launch it once from the home screen while online. After that it works without a connection.
 

@@ -13,8 +13,9 @@ An iPad home-screen web app that shows a message as large as possible on screen,
 ## Rules
 
 - **Offline first.** Never load anything from a CDN or Google Fonts. Use system font stacks only (`-apple-system`, `ui-rounded`, `ui-serif`, `ui-monospace`).
-- **When you change any file, bump `CACHE` in `sw.js`** (e.g. `bigtext-v1` → `bigtext-v2`), or installed copies keep the old version. Add any new file to `FILES`.
-- Paths stay relative (`./`, `sw.js`) so the app works from a GitHub Pages subpath like `/big-screen-PWA/`.
+- **When you change any file, bump `CACHE` in `sw.js`** (e.g. `bigtext-v3` → `bigtext-v4`) **and the matching `caches.has("…")` check in `index.html`**, which drives the "Ready offline" indicator. Otherwise installed copies keep the old version. Add any new file to `FILES`.
+- The service worker stores clean copies of redirected responses, because Safari refuses to show a cached redirect offline. Keep that.
+- Paths stay relative (`./`, `sw.js`) so the app works from a GitHub Pages subpath. The Pages path is case-sensitive: the live URL is `/big-screen-PWA/`, not lowercase.
 - Settings persist in `localStorage` under the key `bigtext.v1`. Wrap storage access in try/catch.
 - Keep the text-fitting logic in `fitText()`: a binary search on font size that checks `scrollWidth`/`scrollHeight` against the container. Text uses `white-space: pre-wrap` and does not break inside words, so a long word shrinks the text instead of splitting.
 - Respect safe-area insets on the stage and the edit sheet.
@@ -25,4 +26,4 @@ Serve locally with `python3 -m http.server` and open `http://localhost:8000`. Se
 
 ## Hosting
 
-GitHub Pages from the `main` branch root. The live URL is `https://<user>.github.io/big-screen-PWA/`.
+GitHub Pages from the `main` branch root. The live URL is `https://minestarnl.github.io/big-screen-PWA/`.
